@@ -257,7 +257,9 @@ STATIC PCWSTR NTAPI MlspGetLanguageName(
 	case LANG_GEORGIAN:				return L"Georgian";
 	case LANG_GERMAN:				return L"German";
 	case LANG_GREEK:				return L"Greek";
+	case LANG_HINDI:				return L"Hindi";
 	case LANG_HUNGARIAN:			return L"Hungarian";
+	case LANG_INDONESIAN:			return L"Indonesian";
 	case LANG_ITALIAN:				return L"Italian";
 	case LANG_JAPANESE:				return L"Japanese";
 	case LANG_KAZAK:				return L"Kazakh";
