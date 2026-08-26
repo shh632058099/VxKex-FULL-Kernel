@@ -175,6 +175,29 @@ BOOL WINAPI DllMain(
 			&Peb->ProcessParameters->CommandLine);
 
 		//
+		// APPSPECIFICHACK: Web browser online installers and updaters (Edge,
+		// Chrome, Chromium, Brave, Firefox, Opera, Vivaldi, Yandex, Thorium,
+		// Arc, LibreWolf, Maxthon, etc) generally refuse to run on Windows 7
+		// unless they are led to believe the OS is newer. Default to Windows
+		// 10 version spoofing for them when the user has not explicitly
+		// configured a version spoof. This must happen before the propagation
+		// system is initialized so that child processes (e.g. the Edge setup
+		// bootstrap launches MicrosoftEdgeUpdate.exe) inherit the setting.
+		//
+
+		unless (KexData->IfeoParameters.DisableAppSpecific) {
+			if (KexData->IfeoParameters.WinVerSpoof == WinVerSpoofNone &&
+				AshIsBrowserInstallerOrUpdater()) {
+
+				KexData->IfeoParameters.WinVerSpoof = WinVerSpoofWin10;
+
+				KexLogInformationEvent(
+					L"WinVerSpoof defaulted to Windows 10 for a web browser "
+					L"installer/updater (APPSPECIFICHACK).");
+			}
+		}
+
+		//
 		// Initialize Propagation subsystem.
 		//
 

@@ -97,6 +97,61 @@ KEXAPI BOOLEAN NTAPI AshExeBaseNameIs(
 	return RtlEqualUnicodeString(&KexData->ImageBaseName, &ExeNameUS, TRUE);
 }
 
+//
+// Returns TRUE if the current process is a web browser installer, setup
+// bootstrap, or updater program (Edge, Chrome, Chromium, Brave, Firefox,
+// Opera, Vivaldi, Yandex, Thorium, Arc, LibreWolf, Pale Moon, Maxthon, etc).
+//
+// These programs generally refuse to run on Windows 7 unless they are made
+// to believe the OS is newer, so VxKex defaults to spoofing Windows 10 for
+// them (see the APPSPECIFICHACK in dllmain.c).
+//
+// Caveat: "updater.exe" and "maintenanceservice.exe" are generic names which
+// are also used by programs other than web browsers; they are included
+// because the updaters of all major browsers use them, but this means that
+// an unrelated program happening to have one of those names also gets the
+// default spoof.
+//
+KEXAPI BOOLEAN NTAPI AshIsBrowserInstallerOrUpdater(
+	VOID)
+{
+	STATIC CONST PCWSTR BrowserInstallerExeNames[] = {
+		L"MicrosoftEdgeSetup.exe",
+		L"MicrosoftEdgeUpdate.exe",
+		L"ChromeSetup.exe",
+		L"chrome_installer.exe",
+		L"mini_installer.exe",
+		L"GoogleUpdate.exe",
+		L"BraveBrowserSetup.exe",
+		L"BraveUpdate.exe",
+		L"Firefox Installer.exe",
+		L"OperaSetup.exe",
+		L"opera_autoupdate.exe",
+		L"VivaldiSetup.exe",
+		L"update_notifier.exe",
+		L"YandexBrowserSetup.exe",
+		L"YandexUpdate.exe",
+		L"thorium_mini_installer.exe",
+		L"ArcInstaller.exe",
+		L"librewolf-winupdater.exe",
+		L"mx_setup.exe",
+		L"mx6setup.exe",
+		L"MxUp.exe",
+		L"updater.exe",
+		L"maintenanceservice.exe",
+	};
+
+	ULONG Index;
+
+	for (Index = 0; Index < ARRAYSIZE(BrowserInstallerExeNames); ++Index) {
+		if (AshExeBaseNameIs(BrowserInstallerExeNames[Index])) {
+			return TRUE;
+		}
+	}
+
+	return FALSE;
+}
+
 STATIC NTSTATUS AshpGetFullAndBaseNameFromAddress(
 	IN	PCVOID			AddressInsideModule,
 	OUT	PUNICODE_STRING	FullDllName OPTIONAL,

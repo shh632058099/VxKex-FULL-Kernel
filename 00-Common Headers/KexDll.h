@@ -592,6 +592,9 @@ KEXAPI NTSTATUS NTAPI KexHkRemoveBasicHook(
 KEXAPI BOOLEAN NTAPI AshExeBaseNameIs(
 	IN	PCWSTR	ExeName);
 
+KEXAPI BOOLEAN NTAPI AshIsBrowserInstallerOrUpdater(
+	VOID);
+
 KEXAPI BOOLEAN NTAPI AshModuleBaseNameIs(
 	IN	PCVOID	AddressInsideModule,
 	IN	PCWSTR	ModuleName);
