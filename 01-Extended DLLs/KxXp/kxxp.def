@@ -1,0 +1,18 @@
+LIBRARY KxXp
+EXPORTS
+	;; procthread.c
+	GetThreadId				= Ext_GetThreadId
+	GetProcessId				= Ext_GetProcessId
+	GetProcessIdOfThread			= Ext_GetProcessIdOfThread
+	RaiseFailFastException			= Ext_RaiseFailFastException
+
+	;; tickcount.c
+	GetTickCount64				= Ext_GetTickCount64
+
+	;; processor.c
+	GetActiveProcessorGroupCount		= Ext_GetActiveProcessorGroupCount
+	GetMaximumProcessorGroupCount		= Ext_GetMaximumProcessorGroupCount
+	GetActiveProcessorCount		= Ext_GetActiveProcessorCount
+	GetMaximumProcessorCount		= Ext_GetMaximumProcessorCount
+	GetCurrentProcessorNumber		= Ext_GetCurrentProcessorNumber
+	GetCurrentProcessorNumberEx		= Ext_GetCurrentProcessorNumberEx

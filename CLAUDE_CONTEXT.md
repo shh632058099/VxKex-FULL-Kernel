@@ -2,7 +2,32 @@
 
 > Memoria **viva** del proyecto. Se actualiza cada vez que se completa una tarea importante o se toma una decisión técnica relevante. A diferencia de [CLAUDE.md](CLAUDE.md) (permanente), este archivo refleja el estado *actual* y cambia con frecuencia.
 >
-> Última actualización: **2026-08-25** — sesión de merge inicial de los 3 forks + primer build de verificación.
+> Última actualización: **2026-08-25** — sesión de merge inicial de los 3 forks + build de verificación + módulo `KxXp` (soporte experimental Windows XP/Server 2003).
+
+## Soporte Windows XP / Server 2003 (2026-08-25)
+
+El usuario pidió incorporar dos proyectos de terceros para extender el soporte a XP/Server 2003: [shorthorn-project/One-Core-API-Binaries](https://github.com/shorthorn-project/One-Core-API-Binaries) y [zeroclear/xpext](https://github.com/zeroclear/xpext). Se investigó la licencia y el contenido real de ambos **antes** de integrar nada:
+
+- **One-Core-API-Binaries: NO se incorporó ningún archivo.** Es la distribución binaria de [shorthorn-project/One-Core-API-Source](https://github.com/shorthorn-project/One-Core-API-Source) (GPL-2.0, "A complete layer to get compatibility on XP/2003 for newer applications"). Al inspeccionar el paquete completo (~1.2GB, `Packages/`) se confirmó que **redistribuye DLLs reales de Microsoft extraídas de instalaciones de Windows más nuevas** (la propia documentación del proyecto dice literalmente "Dxva2 (from win7)" en `Documents/dlladd.txt`). Eso es infracción de copyright de Microsoft, no una cuestión de licencia GPL ambigua — se decidió no copiar nada de ese repo al árbol, pese a que el usuario autorizó asumir el riesgo, porque cruza una línea que no depende del permiso del usuario. Queda solo como referencia/enlace.
+  - Arquitectura, para contexto futuro: One-Core-API reemplaza archivos de sistema completos (modelo de "component servicing", como un Windows Update), mientras que VxKex inyecta una DLL vía IFEO y redirige el import table — son mecanismos incompatibles, no es tan simple como "copiar los DLLs".
+- **xpext: NO se copió su código** (no tiene licencia declarada — confirmado vía `gh api repos/zeroclear/xpext` → `license: null` — y el propio autor dice en su README que el código suelto "no sirve compilado", pensado solo como referencia). En su lugar se usó su lista de funciones (un hecho, no una expresión protegida por copyright) como especificación funcional para escribir una implementación propia desde cero: el módulo nuevo **`01-Extended DLLs/KxXp/`**.
+
+### Módulo `KxXp` (nuevo, escrito desde cero esta sesión)
+
+Cubre APIs introducidas en Vista/Windows 7 que Windows XP/Server 2003 no tiene nativamente — el mismo hueco que documenta `xpext`, pero con implementación propia basada en las NT API ya usadas en el resto de este código (`NtQueryInformationThread/Process`, técnicas estándar y documentadas, no en el código de xpext).
+
+**Implementado y compila limpio (x64 y Win32 Release, toolset `v141_xp`):**
+- `GetThreadId`, `GetProcessId`, `GetProcessIdOfThread` — vía `NtQueryInformationThread`/`NtQueryInformationProcess`.
+- `GetTickCount64` — contador de 64 bits sin locks, construido sobre `GetTickCount()` con detección de desbordamiento vía `InterlockedCompareExchange64`.
+- `GetActiveProcessorGroupCount`, `GetMaximumProcessorGroupCount` — devuelven 1 (XP/2003 no tienen el concepto de grupos de procesador, introducido en Win7).
+- `GetActiveProcessorCount`, `GetMaximumProcessorCount` — vía `GetSystemInfo`.
+- `GetCurrentProcessorNumber`, `GetCurrentProcessorNumberEx` — **stub que siempre devuelve el procesador 0.** No hay forma documentada y portable de saber el procesador actual antes de Vista sin asembler no verificado o asumir el layout de `KUSER_SHARED_DATA`/KPCR — se optó por una "mentira segura" (degrada a "sin pista de afinidad", no a comportamiento incorrecto) en vez de arriesgar código no verificable. Documentado en el propio archivo `processor.c`.
+- `RaiseFailFastException` — versión simplificada: termina el proceso de forma incondicional e incapturable (la garantía que de verdad importa a quien la llama), pero **no** notifica a los vectored exception handlers registrados como hace la versión real. Documentado en `procthread.c`.
+
+**NO implementado (deliberadamente, por riesgo):** `InitializeSRWLock` y toda la familia SRWLock, `InitializeConditionVariable` y toda la familia ConditionVariable, `InitOnceExecuteOnce` y familia, y las extensiones de fibers (`ConvertThreadToFiberEx`, `FlsAlloc`/`FlsFree`/etc.). Son primitivas de sincronización — un bug ahí puede producir deadlocks o corrupción en cualquier programa que las use, y no hay forma de verificarlas sin un compilador Windows real corriendo pruebas de concurrencia con múltiples hilos, algo que esta sesión no pudo hacer. **Quedan pendientes para quien pueda probarlas de verdad.**
+
+**Aún NO conectado al mecanismo de redirección de imports de `KexDll`** (`KexDll/redirects.h`). Esa tabla redirige DLLs completas (ej. `kernel32` → `kxbase`), no funciones individuales, y `kernel32.dll` ya se redirige a `KxBase` — que en Windows 7/8/8.1 (el baseline actual de VxKex) reenvía estas funciones al `kernel32.dll` real porque ahí SÍ existen nativamente. Conectar `KxXp` correctamente requiere una decisión de diseño más grande: o un build separado con baseline XP, o un fallback en tiempo de ejecución tipo "si `GetProcAddress` encuentra la función real, reenviar; si no, usar la nuestra" (la técnica que usa el proyecto relacionado YY-Thunks, mencionado en el README de xpext). Sin esa decisión, `KxXp.dll` compila y existe pero **ningún programa lo carga todavía** — es un punto de partida real, no una integración terminada.
+- Tampoco está en la lista de dependencias de `KexSetup` (el instalador no lo empaqueta todavía).
 
 ## Estado actual del desarrollo
 
@@ -88,7 +113,9 @@ Estas son candidatas reales a portar desde i486/Extended, pero requieren compila
 3. **Revisar las brechas de la tabla de arriba**, empezando por las de riesgo "Alto"/"Medio": el RNG shim y los fixes upstream de i486.
 4. **Decidir sobre la licencia** — preguntar al usuario o contactar a vxiiduu (autor de i486) antes de publicar o redistribuir.
 5. **Configurar un entorno de build real** (VM Windows con VS2010/Windows SDK 7.1) para poder validar cambios futuros, en vez de editar código a ciegas indefinidamente.
-6. Considerar si conviene rastrear la relación con los repos origen vía `git remote` (por si en el futuro se quiere traer actualizaciones nuevas de i486/NEXT con `git fetch` + merge selectivo) en vez de solo el snapshot actual.
+6. **Decidir cómo conectar `KxXp` al mecanismo de redirección real** (build separado con baseline XP vs. fallback en runtime vía `GetProcAddress`) — hoy el módulo compila pero no lo usa ningún programa. Ver sección "Soporte Windows XP / Server 2003" arriba.
+7. **Implementar (con pruebas de concurrencia reales) las primitivas de sincronización que `KxXp` dejó pendientes**: SRWLock, ConditionVariable, InitOnce, extensiones de fibers.
+8. Considerar si conviene rastrear la relación con los repos origen vía `git remote` (por si en el futuro se quiere traer actualizaciones nuevas de i486/NEXT con `git fetch` + merge selectivo) en vez de solo el snapshot actual.
 
 ## Cómo mantener actualizado este archivo
 

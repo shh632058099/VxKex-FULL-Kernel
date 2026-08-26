@@ -78,6 +78,7 @@ Cada una reimplementa una porción del API de Windows moderno:
 | `KxSChanl` | Pila TLS/SSL completa (handshake TLS 1.2/1.3, HKDF, certificados) — exclusivo de NEXT, más avanzado que el `schannel.c` único de Extended |
 | `KxUia` | UI Automation |
 | `KxUser` | user32 (ventanas, DPI/scaling, punteros, bluetooth, parches específicos para Chromium/Firefox) |
+| `KxXp` | Subconjunto de APIs Vista/Win7 (GetThreadId, GetProcessId, GetTickCount64, grupos de procesador, etc.) ausentes en Windows XP/Server 2003 — módulo nuevo, ver CLAUDE_CONTEXT.md |
 
 ## Tecnologías
 

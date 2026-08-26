@@ -37,6 +37,14 @@ for a full technical breakdown of what was merged and why.
 - Includes source for the full stack: user-mode API shim DLLs, the shell
   extension, the GUI configuration tool, the installer, and a (currently
   minimal) kernel-mode driver — see [Project structure](#project-structure).
+- **Experimental, not-yet-wired-in Windows XP/Server 2003 support** (`KxXp`
+  module): implementations of a handful of Vista/7-era APIs XP lacks
+  natively (`GetTickCount64`, `GetThreadId`/`GetProcessId`, processor group
+  queries). Compiles cleanly but isn't connected to the import-redirection
+  mechanism yet, and the trickier synchronization-primitive APIs (SRWLock,
+  ConditionVariable, InitOnce, fiber extensions) are deliberately left
+  unimplemented rather than guessed at untested. See
+  [CLAUDE_CONTEXT.md](CLAUDE_CONTEXT.md) for the full state and reasoning.
 
 ## Installing (end users)
 
