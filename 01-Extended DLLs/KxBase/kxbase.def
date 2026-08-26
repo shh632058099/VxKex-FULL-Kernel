@@ -204,6 +204,20 @@ EXPORTS
 	RemoveDllDirectory						= Ext_RemoveDllDirectory
 	SetDefaultDllDirectories				= Ext_SetDefaultDllDirectories
 
+	;; xpfallback.c - forward to the real kernel32 function if it exists,
+	;; otherwise fall back to the shared Kxxp* implementation (XP/Server 2003)
+	GetThreadId								= Ext_GetThreadId
+	GetProcessId							= Ext_GetProcessId
+	GetProcessIdOfThread					= Ext_GetProcessIdOfThread
+	RaiseFailFastException					= Ext_RaiseFailFastException
+	GetTickCount64							= Ext_GetTickCount64
+	GetActiveProcessorGroupCount			= Ext_GetActiveProcessorGroupCount
+	GetMaximumProcessorGroupCount			= Ext_GetMaximumProcessorGroupCount
+	GetActiveProcessorCount					= Ext_GetActiveProcessorCount
+	GetMaximumProcessorCount				= Ext_GetMaximumProcessorCount
+	GetCurrentProcessorNumber				= Ext_GetCurrentProcessorNumber
+	GetCurrentProcessorNumberEx				= Ext_GetCurrentProcessorNumberEx
+
 	;; security.c
 	CreateWellKnownSid						= Ext_CreateWellKnownSid
 

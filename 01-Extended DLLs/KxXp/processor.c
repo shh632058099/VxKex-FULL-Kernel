@@ -35,17 +35,17 @@
 #define ALL_PROCESSOR_GROUPS 0xFFFF
 #endif
 
-WORD WINAPI Ext_GetActiveProcessorGroupCount(VOID)
+WORD WINAPI KxxpGetActiveProcessorGroupCount(VOID)
 {
 	return 1;
 }
 
-WORD WINAPI Ext_GetMaximumProcessorGroupCount(VOID)
+WORD WINAPI KxxpGetMaximumProcessorGroupCount(VOID)
 {
 	return 1;
 }
 
-DWORD WINAPI Ext_GetActiveProcessorCount(
+DWORD WINAPI KxxpGetActiveProcessorCount(
 	IN	WORD	GroupNumber)
 {
 	SYSTEM_INFO SystemInfo;
@@ -59,14 +59,14 @@ DWORD WINAPI Ext_GetActiveProcessorCount(
 	return SystemInfo.dwNumberOfProcessors;
 }
 
-DWORD WINAPI Ext_GetMaximumProcessorCount(
+DWORD WINAPI KxxpGetMaximumProcessorCount(
 	IN	WORD	GroupNumber)
 {
 	// On a system with only one (implicit) processor group, "active" and
 	// "maximum" processor counts are the same thing - Windows XP/Server
 	// 2003 have no concept of processors becoming available at runtime
 	// beyond what GetSystemInfo already reports.
-	return Ext_GetActiveProcessorCount(GroupNumber);
+	return KxxpGetActiveProcessorCount(GroupNumber);
 }
 
 //
@@ -81,12 +81,12 @@ DWORD WINAPI Ext_GetMaximumProcessorCount(
 // behaviour. Callers that require a real answer are not well served by
 // this stub - see CLAUDE_CONTEXT.md.
 //
-DWORD WINAPI Ext_GetCurrentProcessorNumber(VOID)
+DWORD WINAPI KxxpGetCurrentProcessorNumber(VOID)
 {
 	return 0;
 }
 
-VOID WINAPI Ext_GetCurrentProcessorNumberEx(
+VOID WINAPI KxxpGetCurrentProcessorNumberEx(
 	OUT	PPROCESSOR_NUMBER	ProcNumber)
 {
 	ProcNumber->Group = 0;

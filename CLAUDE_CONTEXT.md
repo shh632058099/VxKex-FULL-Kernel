@@ -2,7 +2,7 @@
 
 > Memoria **viva** del proyecto. Se actualiza cada vez que se completa una tarea importante o se toma una decisión técnica relevante. A diferencia de [CLAUDE.md](CLAUDE.md) (permanente), este archivo refleja el estado *actual* y cambia con frecuencia.
 >
-> Última actualización: **2026-08-25** — sesión de merge inicial de los 3 forks + build de verificación + módulo `KxXp` (soporte experimental Windows XP/Server 2003).
+> Última actualización: **2026-08-25** — sesión de merge inicial de los 3 forks + build de verificación + módulo `KxXp` (soporte experimental Windows XP/Server 2003) + conexión de `KxXp` al mecanismo de redirección vía capa de fallback en `KxBase`.
 
 ## Soporte Windows XP / Server 2003 (2026-08-25)
 
@@ -26,22 +26,29 @@ Cubre APIs introducidas en Vista/Windows 7 que Windows XP/Server 2003 no tiene n
 
 **NO implementado (deliberadamente, por riesgo):** `InitializeSRWLock` y toda la familia SRWLock, `InitializeConditionVariable` y toda la familia ConditionVariable, `InitOnceExecuteOnce` y familia, y las extensiones de fibers (`ConvertThreadToFiberEx`, `FlsAlloc`/`FlsFree`/etc.). Son primitivas de sincronización — un bug ahí puede producir deadlocks o corrupción en cualquier programa que las use, y no hay forma de verificarlas sin un compilador Windows real corriendo pruebas de concurrencia con múltiples hilos, algo que esta sesión no pudo hacer. **Quedan pendientes para quien pueda probarlas de verdad.**
 
-**Aún NO conectado al mecanismo de redirección de imports de `KexDll`** (`KexDll/redirects.h`). Esa tabla redirige DLLs completas (ej. `kernel32` → `kxbase`), no funciones individuales, y `kernel32.dll` ya se redirige a `KxBase` — que en Windows 7/8/8.1 (el baseline actual de VxKex) reenvía estas funciones al `kernel32.dll` real porque ahí SÍ existen nativamente. Conectar `KxXp` correctamente requiere una decisión de diseño más grande: o un build separado con baseline XP, o un fallback en tiempo de ejecución tipo "si `GetProcAddress` encuentra la función real, reenviar; si no, usar la nuestra" (la técnica que usa el proyecto relacionado YY-Thunks, mencionado en el README de xpext). Sin esa decisión, `KxXp.dll` compila y existe pero **ningún programa lo carga todavía** — es un punto de partida real, no una integración terminada.
-- Tampoco está en la lista de dependencias de `KexSetup` (el instalador no lo empaqueta todavía).
+**Conectado a la redirección de imports (2026-08-25, segunda mitad de la sesión):** se implementó la opción de "fallback en runtime" que estaba pendiente de decisión, siguiendo la técnica YY-Thunks y el patrón ya existente en `KxBase/module.c` para `AddDllDirectory` (funciones ausentes en Win7 sin KB2533623):
+
+- Las 3 fuentes de implementación de `KxXp` (`procthread.c`, `tickcount.c`, `processor.c`) ahora **se compilan también dentro de `KxBase`** (referenciadas con ruta relativa `..\KxXp\*.c` en `kxbase.vcxproj`). Sus funciones internas fueron renombradas de `Ext_*` a `Kxxp*` para evitar colisión de símbolos dentro de KxBase. No hay dependencia en runtime de que `KxXp.dll` exista o esté cargado.
+- Nuevo archivo **`KxBase/xpfallback.c`**: capa de 11 wrappers exportados (`Ext_GetThreadId`, `Ext_GetTickCount64`, etc.) que en la primera llamada sondean el kernel32 REAL (`LdrGetProcedureAddress` sobre `KexData->BaseDllBase`) con caché en puntero estático; si la función nativa existe (siempre en Vista/7/8/8.1) reenvían a ella — comportamiento idéntico al anterior — y si no existe (XP/Server 2003) caen a las implementaciones `Kxxp*`. El helper deliberadamente NO toca last error al fallar el sondeo (a diferencia de `BasepGetDllDirectoryProcedure`), porque los fallbacks normalmente tienen éxito.
+- En `forwards.c` se comentaron los 11 hard-forwards `/EXPORT:X=kernel32.X` correspondientes (quedó intacto `GetThreadIdealProcessorEx`, que no es nuestro) y en `kxbase.def` se añadieron las 11 entradas mapeando al nombre público.
+- **Verificado con build real (v141_xp): x64 Release compila toda la solución limpia (21/21 binarios)** y `dumpbin /exports` confirma que las 11 funciones son exportaciones locales de `KxBase.dll` (= Ext_*) mientras `GetThreadIdealProcessorEx` sigue siendo forwarder. `KxXp.dll` Win32 también compila. **Win32: `KxBase` falla al enlazar por el MISMO problema preexistente de `__except_handler4` del toolset sustituto** (ver sección siguiente) — probado por A/B con `git stash`: falla idéntico sin estos cambios, así que no fue introducido aquí; se espera que desaparezca al instalar el toolset real.
+
+**Pendiente del módulo:** empaquetado en `KexSetup` (el instalador aún no lo incluye; hoy es inocuo porque nada depende de `KxXp.dll` en runtime), prueba real sobre Windows XP/2003 (aquí no hay forma de ejecutarlo), y las primitivas de sincronización listadas arriba.
 
 ## Estado actual del desarrollo
 
-El repositorio estaba **vacío** (un único "Initial commit" con solo `.gitattributes`, sin código) al comenzar esta sesión. En esta sesión se pobló con el árbol de código fusionado de los 3 forks de VxKex, y se verificó que **sí compila de verdad** (ver sección siguiente). El árbol fusionado quedó commiteado a git.
+El repositorio estaba **vacío** (un único "Initial commit" con solo `.gitattributes`, sin código) al comenzar la sesión del merge. En esa sesión se pobló con el árbol de código fusionado de los 3 forks de VxKex, y se verificó que **sí compila de verdad** (ver sección siguiente). El árbol fusionado quedó commiteado a git; la conexión de `KxXp` descrita arriba quedó sin commitear (pendiente de que el usuario lo pida).
 
 ## Estado de compilación verificado (2026-08-25)
 
 Esta máquina tiene **Visual Studio 18 Enterprise** instalado en `F:\Program Files\Microsoft Visual Studio\18\Enterprise`, pero **ninguno** de los toolsets que el proyecto pide explícitamente (`Windows7.1SDK`, `v100`, `v110_xp`, `v120_xp`, `v140_xp`) está presente. El toolset XP-compatible más cercano disponible es **`v141_xp`** (de VS2017), así que se usó como sustituto para un build de prueba real:
 
 - **`Platform=x64`, `Configuration=Release` → ✅ compila y enlaza limpio, 0 errores.** Los ~40 proyectos de la solución generaron sus 20 binarios (`.dll`/`.exe`), incluyendo `KexDll.dll` (el núcleo inyectado), `KxSChanl.dll` (pila TLS completa, 182 funciones), `VxKexLdr.exe`, `CpiwBypaLdr.exe`. Esto **confirma que el árbol fusionado es sano** — no es una mezcla rota de código incompatible.
-- **`Platform=Win32`, `Configuration=Release` → ⚠️ 37/40 proyectos compilan y enlazan bien**, pero **3 fallan** con `LNK2001: símbolo externo __except_handler4 sin resolver`:
+- **`Platform=Win32`, `Configuration=Release` → ⚠️ la mayoría compila y enlaza bien**, pero **4 proyectos fallan** con `LNK2001: símbolo externo __except_handler4 sin resolver`:
   - `KexDll.vcxproj` (el núcleo — el más importante)
   - `KexShlEx.vcxproj`
   - `CpiwBypaLdr.vcxproj`
+  - `KxBase.vcxproj` (confirmado como cuarta víctima del mismo problema en la sesión del 25/08 por la tarde, mediante prueba A/B con `git stash`: el fallo es idéntico con y sin los cambios de KxXp, o sea preexistente y no causado por ellos)
 
   **Causa raíz identificada:** `__except_handler4` es el manejador de SEH (Structured Exception Handling) basado en cookies que usa el CRT antiguo (VS2005–VS2013) cuando se compila x86 con `/SAFESEH`. El toolset `v141_xp` (VS2017) trae un CRT distinto que no expone ese símbolo de la misma forma para binarios x86 antiguos — es una incompatibilidad de ABI entre el toolset legacy que el proyecto espera realmente (`v100`/`v140_xp`/`Windows7.1SDK`) y el sustituto más moderno disponible. **Nota:** SAFESEH solo existe en x86; por eso x64 no se topa con este problema — consistente con lo observado.
   - **No se intentó "arreglar" esto deshabilitando `/SAFESEH` o forzando una lib alternativa** — KexDll es el módulo de seguridad más sensible del proyecto (inyección de DLL, redirección de imports) y tocar su modelo de manejo de excepciones sin poder validar las implicaciones de seguridad/estabilidad sería irresponsable. Instalar el toolset real (`v100` = VS2010, o `v140_xp` = VS2015 con soporte XP, o el Windows SDK 7.1 standalone) es la solución correcta — ver "Próximos pasos".
@@ -108,14 +115,13 @@ Estas son candidatas reales a portar desde i486/Extended, pero requieren compila
 
 ## Próximos pasos recomendados
 
-1. **Instalar el toolset `v100`, `v140_xp` o el Windows SDK 7.1 standalone** para conseguir un build Win32 Release 100% limpio (hoy falla solo por el sustituto `v141_xp` en 3 proyectos — ver "Estado de compilación verificado"). x64 ya compila limpio con `v141_xp`.
+1. **Instalar el toolset `v100`, `v140_xp` o el Windows SDK 7.1 standalone** para conseguir un build Win32 Release 100% limpio (hoy falla solo por el sustituto `v141_xp` en 4 proyectos — ver "Estado de compilación verificado"). x64 ya compila limpio con `v141_xp`.
 2. **Diffear release por release el Changelog.txt de i486** (builds 1.1.0.1291 → 1.2.1.2229) contra el Changelog.txt de NEXT para extraer qué fixes/features del upstream original no están reconciliados, y portarlos manualmente uno por uno (no en bloque).
 3. **Revisar las brechas de la tabla de arriba**, empezando por las de riesgo "Alto"/"Medio": el RNG shim y los fixes upstream de i486.
 4. **Decidir sobre la licencia** — preguntar al usuario o contactar a vxiiduu (autor de i486) antes de publicar o redistribuir.
-5. **Configurar un entorno de build real** (VM Windows con VS2010/Windows SDK 7.1) para poder validar cambios futuros, en vez de editar código a ciegas indefinidamente.
-6. **Decidir cómo conectar `KxXp` al mecanismo de redirección real** (build separado con baseline XP vs. fallback en runtime vía `GetProcAddress`) — hoy el módulo compila pero no lo usa ningún programa. Ver sección "Soporte Windows XP / Server 2003" arriba.
+5. **Configurar un entorno de build real** (VM Windows con VS2010/Windows SDK 7.1, y una VM con Windows XP/2003 para probar KxXp de verdad).
+6. **Empaquetar `KxXp.dll` en `KexSetup`** y commitear los cambios de conexión de KxXp (quedaron sin commit a propósito). Hoy nada depende de ese DLL en runtime, así que añadirlo es seguro e incremental.
 7. **Implementar (con pruebas de concurrencia reales) las primitivas de sincronización que `KxXp` dejó pendientes**: SRWLock, ConditionVariable, InitOnce, extensiones de fibers.
-8. Considerar si conviene rastrear la relación con los repos origen vía `git remote` (por si en el futuro se quiere traer actualizaciones nuevas de i486/NEXT con `git fetch` + merge selectivo) en vez de solo el snapshot actual.
 
 ## Cómo mantener actualizado este archivo
 

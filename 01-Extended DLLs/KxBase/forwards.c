@@ -364,8 +364,8 @@
 #pragma comment(linker, "/EXPORT:FreeUserPhysicalPages=kernel32.FreeUserPhysicalPages")
 #pragma comment(linker, "/EXPORT:GenerateConsoleCtrlEvent=kernel32.GenerateConsoleCtrlEvent")
 #pragma comment(linker, "/EXPORT:GetACP=kernel32.GetACP")
-#pragma comment(linker, "/EXPORT:GetActiveProcessorCount=kernel32.GetActiveProcessorCount")
-#pragma comment(linker, "/EXPORT:GetActiveProcessorGroupCount=kernel32.GetActiveProcessorGroupCount")
+//#pragma comment(linker, "/EXPORT:GetActiveProcessorCount=kernel32.GetActiveProcessorCount")	// see xpfallback.c
+//#pragma comment(linker, "/EXPORT:GetActiveProcessorGroupCount=kernel32.GetActiveProcessorGroupCount")	// see xpfallback.c
 #pragma comment(linker, "/EXPORT:GetApplicationRecoveryCallback=kernel32.GetApplicationRecoveryCallback")
 #pragma comment(linker, "/EXPORT:GetApplicationRestartSettings=kernel32.GetApplicationRestartSettings")
 #pragma comment(linker, "/EXPORT:GetAtomNameA=kernel32.GetAtomNameA")
@@ -453,8 +453,8 @@
 #pragma comment(linker, "/EXPORT:GetCurrentDirectoryW=kernel32.GetCurrentDirectoryW")
 #pragma comment(linker, "/EXPORT:GetCurrentProcess=kernel32.GetCurrentProcess")
 #pragma comment(linker, "/EXPORT:GetCurrentProcessId=kernel32.GetCurrentProcessId")
-#pragma comment(linker, "/EXPORT:GetCurrentProcessorNumber=kernel32.GetCurrentProcessorNumber")
-#pragma comment(linker, "/EXPORT:GetCurrentProcessorNumberEx=kernel32.GetCurrentProcessorNumberEx")
+//#pragma comment(linker, "/EXPORT:GetCurrentProcessorNumber=kernel32.GetCurrentProcessorNumber")	// see xpfallback.c
+//#pragma comment(linker, "/EXPORT:GetCurrentProcessorNumberEx=kernel32.GetCurrentProcessorNumberEx")	// see xpfallback.c
 #pragma comment(linker, "/EXPORT:GetCurrentThread=kernel32.GetCurrentThread")
 #pragma comment(linker, "/EXPORT:GetCurrentThreadId=kernel32.GetCurrentThreadId")
 #pragma comment(linker, "/EXPORT:GetDateFormatA=kernel32.GetDateFormatA")
@@ -529,8 +529,8 @@
 #pragma comment(linker, "/EXPORT:GetLongPathNameTransactedW=kernel32.GetLongPathNameTransactedW")
 #pragma comment(linker, "/EXPORT:GetLongPathNameW=kernel32.GetLongPathNameW")
 #pragma comment(linker, "/EXPORT:GetMailslotInfo=kernel32.GetMailslotInfo")
-#pragma comment(linker, "/EXPORT:GetMaximumProcessorCount=kernel32.GetMaximumProcessorCount")
-#pragma comment(linker, "/EXPORT:GetMaximumProcessorGroupCount=kernel32.GetMaximumProcessorGroupCount")
+//#pragma comment(linker, "/EXPORT:GetMaximumProcessorCount=kernel32.GetMaximumProcessorCount")	// see xpfallback.c
+//#pragma comment(linker, "/EXPORT:GetMaximumProcessorGroupCount=kernel32.GetMaximumProcessorGroupCount")	// see xpfallback.c
 #pragma comment(linker, "/EXPORT:GetModuleFileNameA=kernel32.GetModuleFileNameA")
 #pragma comment(linker, "/EXPORT:GetModuleFileNameW=kernel32.GetModuleFileNameW")
 //#pragma comment(linker, "/EXPORT:GetModuleHandleA=kernel32.GetModuleHandleA")
@@ -588,8 +588,8 @@
 #pragma comment(linker, "/EXPORT:GetProcessHandleCount=kernel32.GetProcessHandleCount")
 #pragma comment(linker, "/EXPORT:GetProcessHeap=kernel32.GetProcessHeap")
 #pragma comment(linker, "/EXPORT:GetProcessHeaps=kernel32.GetProcessHeaps")
-#pragma comment(linker, "/EXPORT:GetProcessId=kernel32.GetProcessId")
-#pragma comment(linker, "/EXPORT:GetProcessIdOfThread=kernel32.GetProcessIdOfThread")
+//#pragma comment(linker, "/EXPORT:GetProcessId=kernel32.GetProcessId")	// see xpfallback.c
+//#pragma comment(linker, "/EXPORT:GetProcessIdOfThread=kernel32.GetProcessIdOfThread")	// see xpfallback.c
 #pragma comment(linker, "/EXPORT:GetProcessIoCounters=kernel32.GetProcessIoCounters")
 #pragma comment(linker, "/EXPORT:GetProcessPreferredUILanguages=kernel32.GetProcessPreferredUILanguages")
 #pragma comment(linker, "/EXPORT:GetProcessPriorityBoost=kernel32.GetProcessPriorityBoost")
@@ -651,7 +651,7 @@
 #pragma comment(linker, "/EXPORT:GetThreadErrorMode=kernel32.GetThreadErrorMode")
 #pragma comment(linker, "/EXPORT:GetThreadGroupAffinity=kernel32.GetThreadGroupAffinity")
 #pragma comment(linker, "/EXPORT:GetThreadIOPendingFlag=kernel32.GetThreadIOPendingFlag")
-#pragma comment(linker, "/EXPORT:GetThreadId=kernel32.GetThreadId")
+//#pragma comment(linker, "/EXPORT:GetThreadId=kernel32.GetThreadId")	// see xpfallback.c
 #pragma comment(linker, "/EXPORT:GetThreadIdealProcessorEx=kernel32.GetThreadIdealProcessorEx")
 #pragma comment(linker, "/EXPORT:GetThreadLocale=kernel32.GetThreadLocale")
 #pragma comment(linker, "/EXPORT:GetThreadPreferredUILanguages=kernel32.GetThreadPreferredUILanguages")
@@ -661,7 +661,7 @@
 #pragma comment(linker, "/EXPORT:GetThreadTimes=kernel32.GetThreadTimes")
 #pragma comment(linker, "/EXPORT:GetThreadUILanguage=kernel32.GetThreadUILanguage")
 #pragma comment(linker, "/EXPORT:GetTickCount=kernel32.GetTickCount")
-#pragma comment(linker, "/EXPORT:GetTickCount64=kernel32.GetTickCount64")
+//#pragma comment(linker, "/EXPORT:GetTickCount64=kernel32.GetTickCount64")	// see xpfallback.c
 #pragma comment(linker, "/EXPORT:GetTimeFormatA=kernel32.GetTimeFormatA")
 #pragma comment(linker, "/EXPORT:GetTimeFormatEx=kernel32.GetTimeFormatEx")
 #pragma comment(linker, "/EXPORT:GetTimeFormatW=kernel32.GetTimeFormatW")
@@ -941,7 +941,7 @@
 #pragma comment(linker, "/EXPORT:QueueUserAPC=kernel32.QueueUserAPC")
 #pragma comment(linker, "/EXPORT:QueueUserWorkItem=kernel32.QueueUserWorkItem")
 #pragma comment(linker, "/EXPORT:RaiseException=kernel32.RaiseException")
-#pragma comment(linker, "/EXPORT:RaiseFailFastException=kernel32.RaiseFailFastException")
+//#pragma comment(linker, "/EXPORT:RaiseFailFastException=kernel32.RaiseFailFastException")	// see xpfallback.c
 #pragma comment(linker, "/EXPORT:ReOpenFile=kernel32.ReOpenFile")
 #pragma comment(linker, "/EXPORT:ReadConsoleA=kernel32.ReadConsoleA")
 #pragma comment(linker, "/EXPORT:ReadConsoleInputA=kernel32.ReadConsoleInputA")

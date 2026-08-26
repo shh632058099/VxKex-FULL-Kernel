@@ -237,17 +237,21 @@
     <ClCompile Include="misc.c" />
     <ClCompile Include="module.c" />
     <ClCompile Include="process.c" />
+    <ClCompile Include="..\KxXp\processor.c" />
+    <ClCompile Include="..\KxXp\procthread.c" />
     <ClCompile Include="pssapi.c" />
     <ClCompile Include="security.c" />
     <ClCompile Include="stubs.c" />
     <ClCompile Include="support.c" />
     <ClCompile Include="synch.c" />
     <ClCompile Include="thread.c" />
+    <ClCompile Include="..\KxXp\tickcount.c" />
     <ClCompile Include="time.c" />
     <ClCompile Include="token.c" />
     <ClCompile Include="verspoof.c" />
     <ClCompile Include="vmem.c" />
     <ClCompile Include="wow64.c" />
+    <ClCompile Include="xpfallback.c" />
   </ItemGroup>
   <ItemGroup>
     <None Include="kxbase.def" />

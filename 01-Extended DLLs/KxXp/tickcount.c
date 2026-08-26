@@ -41,7 +41,7 @@
 // period. That is true of any process that calls this function with any
 // regularity, which is the expected use case for a compatibility shim.
 //
-ULONGLONG WINAPI Ext_GetTickCount64(VOID)
+ULONGLONG WINAPI KxxpGetTickCount64(VOID)
 {
 	static volatile LONG64 LastTickCount64 = 0;
 	LONG64 Previous;

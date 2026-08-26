@@ -29,6 +29,18 @@
     <ClCompile Include="dllmain.c">
       <Filter>Source Files</Filter>
     </ClCompile>
+    <ClCompile Include="..\KxXp\processor.c">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="..\KxXp\procthread.c">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="..\KxXp\tickcount.c">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="xpfallback.c">
+      <Filter>Source Files</Filter>
+    </ClCompile>
     <ClCompile Include="thread.c">
       <Filter>Source Files</Filter>
     </ClCompile>

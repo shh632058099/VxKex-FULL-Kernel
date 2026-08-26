@@ -35,7 +35,7 @@
 // NtQueryInformationThread/Process has always been able to return.
 //
 
-DWORD WINAPI Ext_GetThreadId(
+DWORD WINAPI KxxpGetThreadId(
 	IN	HANDLE	Thread)
 {
 	THREAD_BASIC_INFORMATION Tbi;
@@ -51,7 +51,7 @@ DWORD WINAPI Ext_GetThreadId(
 	return (DWORD) (ULONG_PTR) Tbi.ClientId.UniqueThread;
 }
 
-DWORD WINAPI Ext_GetProcessId(
+DWORD WINAPI KxxpGetProcessId(
 	IN	HANDLE	Process)
 {
 	PROCESS_BASIC_INFORMATION Pbi;
@@ -67,7 +67,7 @@ DWORD WINAPI Ext_GetProcessId(
 	return (DWORD) Pbi.UniqueProcessId;
 }
 
-DWORD WINAPI Ext_GetProcessIdOfThread(
+DWORD WINAPI KxxpGetProcessIdOfThread(
 	IN	HANDLE	Thread)
 {
 	THREAD_BASIC_INFORMATION Tbi;
@@ -95,7 +95,7 @@ DWORD WINAPI Ext_GetProcessIdOfThread(
 // call never returns - is preserved. See CLAUDE_CONTEXT.md for follow-up.
 //
 DECLSPEC_NORETURN
-VOID WINAPI Ext_RaiseFailFastException(
+VOID WINAPI KxxpRaiseFailFastException(
 	IN	PEXCEPTION_RECORD	ExceptionRecord OPTIONAL,
 	IN	PCONTEXT			ContextRecord OPTIONAL,
 	IN	DWORD				Flags)
