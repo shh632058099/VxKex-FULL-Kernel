@@ -145,6 +145,7 @@ STATIC NTSTATUS NTAPI Ext_RtlGetVersion(
 		}
 	}
 
+
 	return STATUS_SUCCESS;
 }
 

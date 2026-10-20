@@ -62,6 +62,10 @@ STATIC NTSTATUS AshpSetIsChromiumProcess(
 	Status = KexRtlInitializeKsec();
 	ASSERT (NT_SUCCESS(Status));
 
+	if (!NT_SUCCESS(Status)) {
+		return Status;
+	}
+
 	return Status;
 }
 
@@ -100,6 +104,10 @@ STATIC NTSTATUS AshpSetIsFirefoxProcess(
 
 	Status = KexRtlInitializeKsec();
 	ASSERT (NT_SUCCESS(Status));
+
+	if (!NT_SUCCESS(Status)) {
+		return Status;
+	}
 
 	return Status;
 }

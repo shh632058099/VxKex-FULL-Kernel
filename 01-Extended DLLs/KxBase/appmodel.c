@@ -102,6 +102,35 @@ KXBASEAPI LONG WINAPI GetPackagePathByFullName(
 	return APPMODEL_ERROR_NO_PACKAGE;
 }
 
+KXBASEAPI LONG WINAPI GetPackageApplicationIds(
+	IN		PCWSTR	PackageFullName,
+	IN OUT	PUINT32	BufferLength,
+	OUT		PBYTE	Buffer OPTIONAL,
+	IN OUT	PUINT32	Count)
+{
+	if (!PackageFullName || !BufferLength || !Count ||
+		(*BufferLength != 0 && !Buffer)) {
+		return ERROR_INVALID_PARAMETER;
+	}
+
+	*BufferLength = 0;
+	*Count = 0;
+	return ERROR_NOT_FOUND;
+}
+
+KXBASEAPI LONG WINAPI OpenPackageInfoByFullName(
+	IN	PCWSTR	PackageFullName,
+	IN	UINT32	Reserved,
+	OUT	PVOID	*PackageInfoReference)
+{
+	if (!PackageFullName || Reserved != 0 || !PackageInfoReference) {
+		return ERROR_INVALID_PARAMETER;
+	}
+
+	*PackageInfoReference = NULL;
+	return ERROR_NOT_FOUND;
+}
+
 KXBASEAPI LONG WINAPI GetPackagesByPackageFamily(
 	IN		PCWSTR	PackageFamilyName,
 	IN OUT	PULONG	Count,

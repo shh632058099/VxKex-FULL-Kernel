@@ -74,6 +74,86 @@ VOID NTAPI KexPostSuccessfulInitializationApcRoutine(
 	ASSERT (NT_SUCCESS(Status));
 
 	//
+	// Chromium sandbox targets depend on the original initial-thread context
+	// prepared by the sandbox broker. Forcing the executable entry point here
+	// bypasses that startup path and can transfer control to a non-executable
+	// sandbox thunk. The APC workaround below exists for legacy MacType-style
+	// thread-context modification and is not required for Chromium.
+	//
+
+	if (KexData->Flags & KEXDATA_FLAG_CHROMIUM) {
+		UNICODE_STRING KxNetDllName;
+		UNICODE_STRING KxNetDllPath;
+		PVOID KxNetDllBase;
+
+		//
+		// Chromium can first resolve Winsock delay imports after its renderer
+		// sandbox is locked down. Load KxNet now, after loader initialization
+		// and before the application entry point, so that the delay-load helper
+		// can reuse the mapped extension DLL without opening it in the sandbox.
+		//
+
+		RtlInitConstantUnicodeString(&KxNetDllName, L"kxnet.dll");
+
+		KxNetDllPath.Length = 0;
+		KxNetDllPath.MaximumLength =
+			KexData->Kex3264DirPath.Length +
+			sizeof(WCHAR) +
+			KxNetDllName.Length +
+			sizeof(WCHAR);
+		KxNetDllPath.Buffer = StackAlloc(
+			WCHAR,
+			KxNetDllPath.MaximumLength / sizeof(WCHAR));
+
+		Status = RtlAppendUnicodeStringToString(
+			&KxNetDllPath,
+			&KexData->Kex3264DirPath);
+		if (!NT_SUCCESS(Status)) {
+			goto PreloadKxNetFailure;
+		}
+
+		Status = RtlAppendUnicodeToString(&KxNetDllPath, L"\\");
+		if (!NT_SUCCESS(Status)) {
+			goto PreloadKxNetFailure;
+		}
+
+		Status = RtlAppendUnicodeStringToString(
+			&KxNetDllPath,
+			&KxNetDllName);
+		if (!NT_SUCCESS(Status)) {
+			goto PreloadKxNetFailure;
+		}
+
+		Status = KexRtlNullTerminateUnicodeString(&KxNetDllPath);
+		if (!NT_SUCCESS(Status)) {
+			goto PreloadKxNetFailure;
+		}
+
+		KxNetDllBase = NULL;
+		Status = LdrLoadDll(
+			NULL,
+			NULL,
+			&KxNetDllPath,
+			&KxNetDllBase);
+		if (!NT_SUCCESS(Status)) {
+			goto PreloadKxNetFailure;
+		}
+
+		KexLogInformationEvent(
+			L"Preloaded KxNet.dll before Chromium sandbox initialization");
+
+		return;
+
+PreloadKxNetFailure:
+		KexLogErrorEvent(
+			L"Could not preload KxNet.dll before Chromium sandbox initialization. "
+			L"NTSTATUS error code: %s (0x%08lx)",
+			KexRtlNtStatusToString(Status),
+			Status);
+		return;
+	}
+
+	//
 	// If this APC is queued to the initial thread, force the EXE entry point
 	// or the .NET entry point if the EXE entry point could not be found.
 	//

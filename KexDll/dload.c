@@ -55,11 +55,78 @@ PVOID NTAPI KexLdrResolveDelayLoadedAPI(
 	USHORT OrdinalOfDelayLoadedAPI;
 	PVOID ProcedureAddress;
 	ULONG Index;
+	static volatile LONG MainImageChromiumDetectionAttempted;
 	
 	RtlInitAnsiString(&LdrResolveDelayLoadedAPIName, "LdrResolveDelayLoadedAPI");
 	LdrGetProcedureAddress(KexData->SystemDllBase, &LdrResolveDelayLoadedAPIName, FALSE, (PPVOID) &pLdrResolveDelayLoadedAPI);
-	if (pLdrResolveDelayLoadedAPI) {
-		return pLdrResolveDelayLoadedAPI(ParentModuleBase, DelayloadDescriptor, FailureDllHook, FailureSystemHook, ThunkAddress, Flags);
+
+	// Chromium delay-loads newer system APIs that are supplied by VxKex
+	// extension DLLs. On Windows 8.1, the native LdrResolveDelayLoadedAPI
+	// bypasses KexRewriteDllPath() and can fail to resolve these imports.
+	// Keep native behavior for other applications, but use the VxKex resolver
+	// for Chromium. Some renderer processes reach delay-load resolution before
+	// their Chromium flag is initialized, and the descriptor may not identify
+	// ws2_32 reliably. Check the main image once before selecting the resolver.
+
+	if (!(KexData->Flags & KEXDATA_FLAG_CHROMIUM) &&
+		InterlockedCompareExchange(&MainImageChromiumDetectionAttempted, 1, 0) == 0) {
+		AshPerformChromiumDetectionFromModuleExports(
+			NtCurrentPeb()->ImageBaseAddress);
+	}
+
+	{
+		BOOLEAN IsWs2_32DelayLoad = FALSE;
+
+		if (ParentModuleBase != NULL && DelayloadDescriptor != NULL &&
+			DelayloadDescriptor->Attributes.RvaBased &&
+			DelayloadDescriptor->DllNameRVA != 0) {
+			PCSTR DelayLoadedDllName;
+			ANSI_STRING DelayLoadedDllNameAS;
+			SIZE_T NameIndex;
+			CHAR NameCharacter;
+
+			DelayLoadedDllName = (PCSTR)RVA_TO_VA(
+				ParentModuleBase,
+				DelayloadDescriptor->DllNameRVA);
+
+			if (DelayLoadedDllName != NULL) {
+				RtlInitAnsiString(&DelayLoadedDllNameAS, DelayLoadedDllName);
+
+				if (DelayLoadedDllNameAS.Length == sizeof("ws2_32.dll") - 1) {
+					IsWs2_32DelayLoad = TRUE;
+
+					for (NameIndex = 0; NameIndex < DelayLoadedDllNameAS.Length; NameIndex++) {
+						NameCharacter = DelayLoadedDllName[NameIndex];
+						if (NameCharacter >= 'A' && NameCharacter <= 'Z') {
+							NameCharacter += 'a' - 'A';
+						}
+
+						if (NameCharacter != "ws2_32.dll"[NameIndex]) {
+							IsWs2_32DelayLoad = FALSE;
+							break;
+						}
+					}
+				}
+			}
+		}
+
+		if (IsWs2_32DelayLoad &&
+			!(KexData->Flags & KEXDATA_FLAG_CHROMIUM)) {
+			AshPerformChromiumDetectionFromModuleExports(
+				NtCurrentPeb()->ImageBaseAddress);
+		}
+
+		if (pLdrResolveDelayLoadedAPI &&
+			!(KexData->Flags & KEXDATA_FLAG_CHROMIUM) &&
+			!IsWs2_32DelayLoad) {
+			return pLdrResolveDelayLoadedAPI(
+				ParentModuleBase,
+				DelayloadDescriptor,
+				FailureDllHook,
+				FailureSystemHook,
+				ThunkAddress,
+				Flags);
+		}
 	}
 
 	ProcedureAddress = NULL;
@@ -133,7 +200,55 @@ PVOID NTAPI KexLdrResolveDelayLoadedAPI(
 		ASSERT (NT_SUCCESS(Status) || Status == STATUS_STRING_MAPPER_ENTRY_NOT_FOUND);
 
 		if (NT_SUCCESS(Status)) {
+			UNICODE_STRING KxPrefix;
+
 			NameOfDllToLoadUS = RewrittenDllName;
+			RtlInitUnicodeString(&KxPrefix, L"kx");
+
+			//
+			// Delay-loaded extension DLLs are resolved after the sandbox target
+			// has already started. Restricted Chromium renderer processes do not
+			// reliably retain the VxKex directory in their DLL search path, so a
+			// rewritten name such as "kxnet" can fail with STATUS_DLL_NOT_FOUND.
+			// Use the absolute Kex32/Kex64 path for VxKex extension DLLs while
+			// leaving redirects to ordinary system DLLs on the normal loader path.
+			//
+
+			if (RtlPrefixUnicodeString(&KxPrefix, &NameOfDllToLoadUS, TRUE)) {
+				UNICODE_STRING FullDllPath;
+
+				FullDllPath.Length = 0;
+				FullDllPath.MaximumLength =
+					KexData->Kex3264DirPath.Length +
+					sizeof(WCHAR) +
+					NameOfDllToLoadUS.Length +
+					(4 * sizeof(WCHAR)) +
+					sizeof(WCHAR);
+				FullDllPath.Buffer = StackAlloc(
+					WCHAR,
+					FullDllPath.MaximumLength / sizeof(WCHAR));
+
+				Status = RtlAppendUnicodeStringToString(
+					&FullDllPath,
+					&KexData->Kex3264DirPath);
+				ASSERT (NT_SUCCESS(Status));
+
+				Status = RtlAppendUnicodeToString(&FullDllPath, L"\\");
+				ASSERT (NT_SUCCESS(Status));
+
+				Status = RtlAppendUnicodeStringToString(
+					&FullDllPath,
+					&NameOfDllToLoadUS);
+				ASSERT (NT_SUCCESS(Status));
+
+				Status = RtlAppendUnicodeToString(&FullDllPath, L".dll");
+				ASSERT (NT_SUCCESS(Status));
+
+				Status = KexRtlNullTerminateUnicodeString(&FullDllPath);
+				ASSERT (NT_SUCCESS(Status));
+
+				NameOfDllToLoadUS = FullDllPath;
+			}
 
 			//
 			// The DLL name was rewritten.

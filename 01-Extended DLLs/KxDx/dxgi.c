@@ -190,6 +190,12 @@ HRESULT STDMETHODCALLTYPE IDXGIFactory4_EnumAdapterByLuid(
 	IN	REFIID			RefIID,
 	OUT	PPVOID			Adapter)
 {
+	if (Adapter == NULL ||
+		(ULONG_PTR) Adapter == (ULONG_PTR) -1 ||
+		(ULONG_PTR) Adapter == 0xFFFFFFFFUL) {
+		return E_INVALIDARG;
+	}
+
 	ASSERT (Adapter != NULL);
 
 	KexLogWarningEvent(L"Unimplemented function EnumAdapterByLuid called");
@@ -203,6 +209,12 @@ HRESULT STDMETHODCALLTYPE IDXGIFactory4_EnumWarpAdapter(
 	IN	REFIID			RefIID,
 	OUT	PPVOID			Adapter)
 {
+	if (Adapter == NULL ||
+		(ULONG_PTR) Adapter == (ULONG_PTR) -1 ||
+		(ULONG_PTR) Adapter == 0xFFFFFFFFUL) {
+		return E_INVALIDARG;
+	}
+
 	ASSERT (Adapter != NULL);
 
 	KexLogWarningEvent(L"Unimplemented function EnumWarpAdapter called");

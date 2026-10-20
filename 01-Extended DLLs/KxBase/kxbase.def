@@ -82,6 +82,8 @@ EXPORTS
 	GetPackageFullName
 	GetPackagePath
 	GetPackagePathByFullName
+	GetPackageApplicationIds
+	OpenPackageInfoByFullName
 	GetPackagesByPackageFamily
 	GetStagedPackagePathByFullName
 	PackageFamilyNameFromFullName
@@ -189,6 +191,7 @@ EXPORTS
 
 	;; process.c
 	IsProcessInJob							= Ext_IsProcessInJob
+	CreateProcessW						= Ext_CreateProcessW
 	UpdateProcThreadAttribute				= Ext_UpdateProcThreadAttribute
 
 	;; module.c

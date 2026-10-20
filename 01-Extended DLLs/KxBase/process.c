@@ -1,6 +1,8 @@
 #include "buildcfg.h"
 #include "kxbasep.h"
 
+#define KEX_PROC_THREAD_ATTRIBUTE_COMPONENT_FILTER ((ULONG_PTR) 0x0002001A)
+
 KXBASEAPI BOOL WINAPI GetProcessInformation(
 	IN	HANDLE						ProcessHandle,
 	IN	PROCESS_INFORMATION_CLASS	ProcessInformationClass,
@@ -280,6 +282,56 @@ KXBASEAPI BOOL WINAPI Ext_IsProcessInJob(
 	return IsProcessInJob(ProcessHandle, JobHandle, IsInJob);
 }
 
+
+KXBASEAPI BOOL WINAPI Ext_CreateProcessW(
+	IN		LPCWSTR					ApplicationName OPTIONAL,
+	IN OUT	LPWSTR					CommandLine OPTIONAL,
+	IN		LPSECURITY_ATTRIBUTES	ProcessAttributes OPTIONAL,
+	IN		LPSECURITY_ATTRIBUTES	ThreadAttributes OPTIONAL,
+	IN		BOOL					InheritHandles,
+	IN		DWORD					CreationFlags,
+	IN		LPVOID					Environment OPTIONAL,
+	IN		LPCWSTR					CurrentDirectory OPTIONAL,
+	IN		LPSTARTUPINFOW			StartupInfo,
+	OUT		LPPROCESS_INFORMATION	ProcessInformation)
+{
+	BOOL Success;
+	ULONG LastError;
+
+	Success = CreateProcessW(
+		ApplicationName,
+		CommandLine,
+		ProcessAttributes,
+		ThreadAttributes,
+		InheritHandles,
+		CreationFlags,
+		Environment,
+		CurrentDirectory,
+		StartupInfo,
+		ProcessInformation);
+
+	LastError = GetLastError();
+
+	if (!Success) {
+		KexLogWarningEvent(
+			L"CreateProcessW failed.\\r\\n\\r\\n"
+			L"Application: %s\\r\\n"
+			L"Command: %s\\r\\n"
+			L"Creation flags: 0x%08lx\\r\\n"
+			L"StartupInfo.cb: %lu\\r\\n"
+			L"Win32 error: (%lu) %s",
+			ApplicationName ? ApplicationName : L"(null)",
+			CommandLine ? CommandLine : L"(null)",
+			CreationFlags,
+			StartupInfo ? StartupInfo->cb : 0,
+			LastError,
+			Win32ErrorAsString(LastError));
+	}
+
+	SetLastError(LastError);
+	return Success;
+}
+
 KXBASEAPI BOOL WINAPI Ext_UpdateProcThreadAttribute(
 	IN OUT	PPROC_THREAD_ATTRIBUTE_LIST	AttributeList,
 	IN		ULONG						Flags,
@@ -312,6 +364,17 @@ TryAgain:
 		// by accident.
 		LastError = GetLastError();
 
+		// Chromium 133 uses PROC_THREAD_ATTRIBUTE_COMPONENT_FILTER (0x2001A).
+		// Windows 8.1 does not support this attribute. Chromium explicitly
+		// treats ERROR_NOT_SUPPORTED as a supported downgrade path, whereas
+		// Windows 8.1 may report another error code here. Preserve the failure
+		// return but normalize LastError so Chromium can continue safely.
+		if ((KexData->Flags & KEXDATA_FLAG_CHROMIUM) &&
+			Attribute == KEX_PROC_THREAD_ATTRIBUTE_COMPONENT_FILTER) {
+			SetLastError(ERROR_NOT_SUPPORTED);
+			return FALSE;
+		}
+
 		if (AlreadyTriedAgain) {
 			KexLogWarningEvent(
 				L"UpdateProcThreadAttribute failed despite modifying parameters.\r\n\r\n"
@@ -320,7 +383,12 @@ TryAgain:
 
 			ASSERT (FALSE);
 		} else {
-			if (LastError == ERROR_NOT_SUPPORTED) {
+			if (LastError == ERROR_NOT_SUPPORTED ||
+				(
+					(KexData->Flags & KEXDATA_FLAG_CHROMIUM) &&
+					Attribute == PROC_THREAD_ATTRIBUTE_MITIGATION_POLICY &&
+					Size > sizeof(ULONG)
+				)) {
 				switch (Attribute) {
 				case PROC_THREAD_ATTRIBUTE_MITIGATION_POLICY:
 					//
@@ -328,7 +396,10 @@ TryAgain:
 					//
 
 					if (!AlreadyTriedAgain) {
-						KexLogDebugEvent(L"Unsupported mitigation policies specified. Stripping.");
+						KexLogDebugEvent(
+							L"Unsupported mitigation policies specified. Stripping.\r\n\r\n"
+							L"Win32 error: (%d) %s",
+							LastError, Win32ErrorAsString(LastError));
 
 						if (Size > sizeof(ULONG)) {
 							ASSERT (Size == sizeof(ULONGLONG) || Size == 2 * sizeof(ULONGLONG));

@@ -172,7 +172,7 @@
 #pragma comment(linker, "/EXPORT:CreateProcessAsUserW=kernel32.CreateProcessAsUserW")
 #pragma comment(linker, "/EXPORT:CreateProcessInternalA=kernel32.CreateProcessInternalA")
 #pragma comment(linker, "/EXPORT:CreateProcessInternalW=kernel32.CreateProcessInternalW")
-#pragma comment(linker, "/EXPORT:CreateProcessW=kernel32.CreateProcessW")
+//#pragma comment(linker, "/EXPORT:CreateProcessW=kernel32.CreateProcessW")
 #pragma comment(linker, "/EXPORT:CreateRemoteThread=kernel32.CreateRemoteThread")
 #pragma comment(linker, "/EXPORT:CreateRemoteThreadEx=kernel32.CreateRemoteThreadEx")
 #pragma comment(linker, "/EXPORT:CreateSemaphoreA=kernel32.CreateSemaphoreA")

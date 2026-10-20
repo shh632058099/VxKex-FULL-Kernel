@@ -1,6 +1,8 @@
 LIBRARY KxMi
 EXPORTS
 	;; powrprof.c
+	PowerRegisterForEffectivePowerModeNotifications
+	PowerUnregisterFromEffectivePowerModeNotifications
 	PowerDeterminePlatformRoleEx
 	PowerRegisterSuspendResumeNotification
 	PowerUnregisterSuspendResumeNotification

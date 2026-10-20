@@ -36,3 +36,26 @@ KXMIAPI ULONG WINAPI PowerUnregisterSuspendResumeNotification(
 
 	return RtlNtStatusToDosError(STATUS_NOT_SUPPORTED);
 }
+KXMIAPI ULONG WINAPI PowerRegisterForEffectivePowerModeNotifications(
+	IN ULONG Version,
+	IN PVOID Callback,
+	IN PVOID Context,
+	OUT PHPOWERNOTIFY RegistrationHandle)
+{
+	UNREFERENCED_PARAMETER(Version);
+	UNREFERENCED_PARAMETER(Callback);
+	UNREFERENCED_PARAMETER(Context);
+
+	if (RegistrationHandle != NULL) {
+		*RegistrationHandle = NULL;
+	}
+
+	return ERROR_NOT_SUPPORTED;
+}
+
+KXMIAPI ULONG WINAPI PowerUnregisterFromEffectivePowerModeNotifications(
+	IN HPOWERNOTIFY RegistrationHandle)
+{
+	UNREFERENCED_PARAMETER(RegistrationHandle);
+	return ERROR_NOT_SUPPORTED;
+}

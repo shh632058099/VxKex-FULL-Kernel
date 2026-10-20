@@ -46,10 +46,37 @@ KXBASEAPI BOOL WINAPI Stub_DuplicateHandle(
 		Options);
 }
 
+static VOID NTAPI KxBasepRtlGetDeviceFamilyInfoEnum(
+	OUT	PULONGLONG	UAPInfo OPTIONAL,
+	OUT	PULONG		DeviceFamily OPTIONAL,
+	OUT	PULONG		DeviceForm OPTIONAL)
+{
+	if (UAPInfo != NULL) {
+		*UAPInfo = (NtCurrentPeb()->OSBuildNumber << 16) + 3570;
+	}
+
+	if (DeviceFamily != NULL) {
+		*DeviceFamily = DEVICEFAMILYINFOENUM_DESKTOP;
+	}
+
+	if (DeviceForm != NULL) {
+		*DeviceForm = DEVICEFAMILYDEVICEFORM_DESKTOP;
+	}
+}
+
 KXBASEAPI FARPROC WINAPI Stub_GetProcAddress(
 	IN	HMODULE		ModuleHandle,
 	IN	PCSTR		ProcedureName)
 {
+	if ((KexData->Flags & KEXDATA_FLAG_CHROMIUM) &&
+		ModuleHandle == (HMODULE) KexData->SystemDllBase &&
+		ProcedureName != NULL &&
+		StringEqualA(ProcedureName, "RtlGetDeviceFamilyInfoEnum")) {
+
+		KexLogDebugEvent(L"Returning RtlGetDeviceFamilyInfoEnum compatibility shim for Chromium");
+		return (FARPROC) KxBasepRtlGetDeviceFamilyInfoEnum;
+	}
+
 	return GetProcAddress(
 		ModuleHandle,
 		ProcedureName);

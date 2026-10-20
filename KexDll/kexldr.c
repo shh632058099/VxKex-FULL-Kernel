@@ -871,6 +871,11 @@ KEXAPI NTSTATUS NTAPI KexLdrLoadDll(
 	ULONG DllCharacteristics;
 	UNICODE_STRING RewrittenDll;
 	UNICODE_STRING TbsDllName;
+	UNICODE_STRING Ws2_32DllName;
+	UNICODE_STRING KxNetDllName;
+	PVOID KxNetDllBase;
+	UNICODE_STRING KxPrefix;
+	UNICODE_STRING KxDllPath;
 	BOOLEAN ShouldRewrite = NtCurrentTeb()->KexLdrShouldRewriteDll;
 	BOOLEAN RewriteTbs = FALSE;
 
@@ -913,10 +918,40 @@ KEXAPI NTSTATUS NTAPI KexLdrLoadDll(
 		ShouldRewrite = TRUE;
 	}*/
 
+	// Chromium's delay-load helper can call the native loader directly after
+	// the renderer sandbox is locked down, bypassing the LoadLibrary wrappers
+	// that normally set KexLdrShouldRewriteDll. Redirect ws2_32 through KxNet
+	// for Chromium processes, but avoid redirecting its own forwarded exports.
+	RtlInitConstantUnicodeString(&Ws2_32DllName, L"ws2_32.dll");
+	if (RtlEqualUnicodeString(&Ws2_32DllName, DllName, TRUE)) {
+		if (!(KexData->Flags & KEXDATA_FLAG_CHROMIUM)) {
+			AshPerformChromiumDetectionFromModuleExports(
+				NtCurrentPeb()->ImageBaseAddress);
+		}
+
+		if (KexData->Flags & KEXDATA_FLAG_CHROMIUM) {
+			RtlInitConstantUnicodeString(&KxNetDllName, L"kxnet.dll");
+			KxNetDllBase = NULL;
+			Status = LdrGetDllHandleEx(
+				LDR_GET_DLL_HANDLE_EX_UNCHANGED_REFCOUNT,
+				NULL,
+				NULL,
+				&KxNetDllName,
+				&KxNetDllBase);
+
+			if (!NT_SUCCESS(Status)) {
+				ShouldRewrite = TRUE;
+			} else {
+				ShouldRewrite = FALSE;
+			}
+		}
+	}
+
 	if (!ShouldRewrite) {
 		// Skip past DLL rewriting.
 		goto BailOut;
 	}
+
 
 	//
 	// Try to rewrite the DLL name or path.
@@ -953,7 +988,43 @@ KEXAPI NTSTATUS NTAPI KexLdrLoadDll(
 	// Remove any problematic DLL characteristics.
 	//
 
-	DllName = &RewrittenDll;
+	RtlInitConstantUnicodeString(&KxPrefix, L"kx");
+	if (RtlPrefixUnicodeString(&KxPrefix, &RewrittenDll, TRUE)) {
+		KxDllPath.Length = 0;
+		KxDllPath.MaximumLength =
+			KexData->Kex3264DirPath.Length +
+			sizeof(WCHAR) +
+			RewrittenDll.Length +
+			(4 * sizeof(WCHAR)) +
+			sizeof(WCHAR);
+		KxDllPath.Buffer = StackAlloc(
+			WCHAR,
+			KxDllPath.MaximumLength / sizeof(WCHAR));
+
+		Status = RtlAppendUnicodeStringToString(
+			&KxDllPath,
+			&KexData->Kex3264DirPath);
+		ASSERT (NT_SUCCESS(Status));
+
+		Status = RtlAppendUnicodeToString(&KxDllPath, L"\\");
+		ASSERT (NT_SUCCESS(Status));
+
+		Status = RtlAppendUnicodeStringToString(
+			&KxDllPath,
+			&RewrittenDll);
+		ASSERT (NT_SUCCESS(Status));
+
+		Status = RtlAppendUnicodeToString(&KxDllPath, L".dll");
+		ASSERT (NT_SUCCESS(Status));
+
+		Status = KexRtlNullTerminateUnicodeString(&KxDllPath);
+		ASSERT (NT_SUCCESS(Status));
+
+		DllName = &KxDllPath;
+	} else {
+		DllName = &RewrittenDll;
+	}
+
 	DllPath = NULL;
 	DllCharacteristics &= ~DLL_CHARACTERISTIC_REQUIRE_SIGNATURE;
 	DllCharacteristicsIndirect = &DllCharacteristics;

@@ -748,6 +748,41 @@ STATIC NTSTATUS NTAPI Ext_NtCreateUserProcess(
 
 	RemoteNtOpenKey = 0;
 
+	// Chromium sandboxed utility/service processes run under a restricted
+	// token. Injecting VxKex into those targets through the AppVerifier/IFEO
+	// propagation path causes them to terminate during sandbox bootstrap.
+	// Renderer processes still need VxKex compatibility shims on Windows 8.1,
+	// so bypass propagation only for Chromium utility targets.
+	if ((KexData->Flags & KEXDATA_FLAG_CHROMIUM) && ProcessParameters) {
+		UNICODE_STRING UtilityProcessType;
+
+		RtlInitConstantUnicodeString(&UtilityProcessType, L"--type=utility");
+
+		if (KexRtlFindUnicodeSubstring(
+			&ProcessParameters->CommandLine,
+			&UtilityProcessType,
+			TRUE)) {
+
+			KexLogInformationEvent(
+				L"Skipping VxKex propagation for Chromium sandbox utility process.\r\n\r\n"
+				L"Command line: %s",
+				ProcessParameters->CommandLine.Buffer);
+
+			return KexNtCreateUserProcess(
+				ProcessHandle,
+				ThreadHandle,
+				ProcessDesiredAccess,
+				ThreadDesiredAccess,
+				ProcessObjectAttributes,
+				ThreadObjectAttributes,
+				ProcessFlags,
+				ThreadFlags,
+				ProcessParameters,
+				CreateInfo,
+				AttributeList);
+		}
+	}
+
 	ModifiedProcessDesiredAccess = ProcessDesiredAccess;
 	ModifiedThreadDesiredAccess = ThreadDesiredAccess;
 	ModifiedThreadFlags = ThreadFlags;

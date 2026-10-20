@@ -581,7 +581,6 @@ KEXAPI BOOLEAN NTAPI KexIsRewriteForcedWindowsDll(
 {
 	UNICODE_STRING WebIo;
 	UNICODE_STRING WinInet;
-	UNICODE_STRING SspiCli;
 
 	//
 	// If the DLL is WebIO (used by WinHTTP) or WinInet, then we will rewrite
@@ -592,16 +591,11 @@ KEXAPI BOOLEAN NTAPI KexIsRewriteForcedWindowsDll(
 	RtlInitConstantUnicodeString(&WebIo, L"webio.dll");
 	RtlInitConstantUnicodeString(&WinInet, L"wininet.dll");
 
-	//
-	// We will rewrite SSPICLI so that we can redirect the SecurityProviders
-	// registry value to our own (see Ext_RegQueryValueExW in KxAdvapi).
-	//
-
-	RtlInitConstantUnicodeString(&SspiCli, L"sspicli.dll");
+	// TEMPORARY DIAGNOSTIC: do not rewrite SSPICLI imports; retain the
+	// WinINet/WebIO rewrites to isolate the security-provider registry shim.
 
 	if (RtlEqualUnicodeString(BaseDllName, &WebIo, TRUE) ||
-		RtlEqualUnicodeString(BaseDllName, &WinInet, TRUE) ||
-		RtlEqualUnicodeString(BaseDllName, &SspiCli, TRUE)) {
+		RtlEqualUnicodeString(BaseDllName, &WinInet, TRUE)) {
 
 		return TRUE;
 	}
