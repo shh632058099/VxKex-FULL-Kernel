@@ -140,6 +140,19 @@ static const EDGE_APIINFO_VTABLE EdgeApiInfoVtable = {
 };
 
 static EDGE_APIINFO EdgeApiInformation = { &EdgeApiInfoVtable };
+
+// Only provide compatibility activation factories for runtime classes implemented by KxCom.
+// Returning the generic IActivationFactory for an unrelated class can make callers treat
+// its seven-slot vtable as a class-specific interface and call beyond the vtable.
+static BOOL IsKxComFallbackActivationFactoryClass(PCWSTR ClassName)
+{
+	return ClassName != NULL && (
+		lstrcmpW(ClassName, L"Windows.System.UserProfile.GlobalizationPreferences") == 0 ||
+		lstrcmpW(ClassName, L"Windows.UI.ViewManagement.UIViewSettings") == 0 ||
+		lstrcmpW(ClassName, L"Windows.UI.ViewManagement.UISettings") == 0 ||
+		lstrcmpW(ClassName, L"Windows.Foundation.Uri") == 0 ||
+		lstrcmpW(ClassName, L"Windows.System.Launcher") == 0);
+}
 #include "buildcfg.h"
 #include "kxcomp.h"
 
@@ -149,6 +162,13 @@ KXCOMAPI HRESULT WINAPI RoGetActivationFactory(
 	OUT	PPVOID	Factory)
 {
 	LPOLESTR RefIIDAsString;
+	PCWSTR ClassName = WindowsGetStringRawBuffer(ActivatableClassId, NULL);
+	HRESULT NativeResult = E_NOTIMPL;
+
+	if (Factory == NULL || RefIID == NULL) {
+		return E_POINTER;
+	}
+	*Factory = NULL;
 
 	StringFromIID(RefIID, &RefIIDAsString);
 
@@ -156,18 +176,18 @@ KXCOMAPI HRESULT WINAPI RoGetActivationFactory(
 		L"RoGetActivationFactory called\r\n\r\n"
 		L"ActivatableClassId: %s\r\n"
 		L"IID:                %s",
-		WindowsGetStringRawBuffer(ActivatableClassId, NULL),
+		ClassName,
 		RefIIDAsString);
 
 	CoTaskMemFree(RefIIDAsString);
 
-	if (lstrcmpW(WindowsGetStringRawBuffer(ActivatableClassId, NULL),
+	if (ClassName != NULL && lstrcmpW(ClassName,
 		L"Windows.Foundation.Metadata.ApiInformation") == 0) {
 		return EdgeApiInfoQueryInterface(&EdgeApiInformation, RefIID, Factory);
 	}
 
 	// Prefer native WinRT factories for APIs implemented by Windows 8.1.
-	// Only use VxKex fallback factories when native activation fails.
+	// Only use VxKex fallback factories for runtime classes implemented by KxCom.
 	{
 		typedef HRESULT (WINAPI *RO_GET_ACTIVATION_FACTORY)(HSTRING, REFIID, PPVOID);
 		HMODULE CombaseModule = GetModuleHandleW(L"combase.dll");
@@ -177,18 +197,22 @@ KXCOMAPI HRESULT WINAPI RoGetActivationFactory(
 				(RO_GET_ACTIVATION_FACTORY) GetProcAddress(CombaseModule, "RoGetActivationFactory");
 
 			if (NativeFactory != NULL) {
-				HRESULT Result = NativeFactory(ActivatableClassId, RefIID, Factory);
+				NativeResult = NativeFactory(ActivatableClassId, RefIID, Factory);
 
-				if (SUCCEEDED(Result)) {
-					return Result;
+				if (SUCCEEDED(NativeResult)) {
+					return NativeResult;
 				}
+				*Factory = NULL;
 			}
 		}
 	}
 
+	if (!IsKxComFallbackActivationFactoryClass(ClassName)) {
+		return NativeResult;
+	}
+
 	return CActivationFactory_QueryInterface(&CActivationFactory, RefIID, Factory);
 }
-
 // Added for Cavalry
 KXCOMAPI HRESULT WINAPI RoRegisterActivationFactories(
 	IN	HSTRING					*ActivatableClassIds,
@@ -212,22 +236,41 @@ KXCOMAPI HRESULT WINAPI RoActivateInstance(
 	IN	HSTRING			ActivatableClassId,
 	OUT	IInspectable	**Instance)
 {
+	PCWSTR ClassName = WindowsGetStringRawBuffer(ActivatableClassId, NULL);
+
 	ASSERT (Instance != NULL);
+	if (Instance == NULL) {
+		return E_POINTER;
+	}
+	*Instance = NULL;
 
 	KexLogDetailEvent(
 		L"RoActivateInstance called: %s",
-		WindowsGetStringRawBuffer(ActivatableClassId, NULL));
+		ClassName);
 
-	if (lstrcmpW(
-		WindowsGetStringRawBuffer(ActivatableClassId, NULL),
-		L"Windows.Management.Deployment.PackageManager") == 0 ||
-		lstrcmpW(
-			WindowsGetStringRawBuffer(ActivatableClassId, NULL),
-			L"Windows.Internal.Security.WebAuthentication.AuthenticationManager") == 0) {
-		*Instance = NULL;
+	// Preserve the explicit compatibility blocks for these classes.
+	if (ClassName != NULL && (
+		lstrcmpW(ClassName, L"Windows.Management.Deployment.PackageManager") == 0 ||
+		lstrcmpW(ClassName, L"Windows.Internal.Security.WebAuthentication.AuthenticationManager") == 0)) {
 		return REGDB_E_CLASSNOTREG;
 	}
 
-	*Instance = (IInspectable *) &CActivationFactory;
-	return S_OK;
+	// A generic IActivationFactory is not a valid instance of an arbitrary runtime class.
+	// Delegate to the original OS implementation so supported WinRT classes receive their
+	// real implementation and unsupported classes return the native activation failure.
+	{
+		typedef HRESULT (WINAPI *RO_ACTIVATE_INSTANCE)(HSTRING, IInspectable **);
+		HMODULE CombaseModule = GetModuleHandleW(L"combase.dll");
+
+		if (CombaseModule != NULL) {
+			RO_ACTIVATE_INSTANCE NativeActivateInstance =
+				(RO_ACTIVATE_INSTANCE) GetProcAddress(CombaseModule, "RoActivateInstance");
+
+			if (NativeActivateInstance != NULL) {
+				return NativeActivateInstance(ActivatableClassId, Instance);
+			}
+		}
+	}
+
+	return E_NOTIMPL;
 }

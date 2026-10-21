@@ -2,7 +2,27 @@
 
 > Memoria **viva** del proyecto. Se actualiza cada vez que se completa una tarea importante o se toma una decisión técnica relevante. A diferencia de [CLAUDE.md](CLAUDE.md) (permanente), este archivo refleja el estado *actual* y cambia con frecuencia.
 >
-> Última actualización: **2026-08-25** — sesión de merge inicial de los 3 forks + build de verificación + módulo `KxXp` (soporte experimental Windows XP/Server 2003) + conexión de `KxXp` al mecanismo de redirección vía capa de fallback en `KxBase`.
+> Última actualización: **2026-10-21** — diagnóstico y corrección de activación WinRT para Edge 133 en Windows 8.1; build x64 de KxCom y prueba de estabilidad de 180 s.
+
+## Edge 133 en Windows 8.1: salida automática por activación WinRT (2026-10-21)
+
+### Evidencia de la causa raíz
+
+- El Crashpad dump `4dc78f78-b8dd-4be5-b59f-d5bcf714dc90.dmp` (21:12:35) registra `0xC0000005` al intentar ejecutar la dirección de datos `KxCom.dll!CActivationFactoryVtbl`; el proceso llevaba 1 min 56 s.
+- La pila pasa por `Windows.Networking.Connectivity.dll`. El log VxKex del proceso que falló registra `RoActivateInstance called: Windows.Networking.Connectivity.ConnectionProfileFilter`.
+- La implementación anterior de `RoActivateInstance` devolvía el objeto genérico `CActivationFactory` para casi cualquier clase. Su `IActivationFactoryVtbl` solo tiene siete slots; `ConnectionProfileFilter` esperaba una instancia real con una interfaz/vtable específica, por lo que terminó ejecutando datos de la vtable como si fueran código.
+
+### Corrección aplicada
+
+- En `01-Extended DLLs/KxCom/rofactry.c`, `RoActivateInstance` conserva los bloqueos explícitos de `Windows.Management.Deployment.PackageManager` y `Windows.Internal.Security.WebAuthentication.AuthenticationManager`; para las demás clases delega en el `RoActivateInstance` original de `combase.dll`, obtenido mediante `GetProcAddress`. Ya no devuelve una instancia genérica falsa; si la exportación nativa no está disponible devuelve `E_NOTIMPL`.
+- `RoGetActivationFactory` sigue intentando primero la implementación nativa y limita el fallback de KxCom a las clases que realmente implementa (`GlobalizationPreferences`, `UIViewSettings`, `UISettings`, `Uri` y `Launcher`). `Windows.Foundation.Metadata.ApiInformation` conserva su shim específico.
+
+### Build, despliegue y validación
+
+- Build x64 Release correcto con `D:\workspace\vxkex-build-tools` (toolchain VS2010 / Windows SDK 7.1). Artefacto: `D:\workspace\vxkex-win81\x64\Release\KxCom.dll`, SHA-256 `381A4F4A1C7F389059F898C976C8DF460F41DAE7A9C406984882C1AAEC4ED521`. Solo quedó el warning preexistente de MSBuild `MSB3644` sobre el targeting pack de .NET Framework; la compilación C/C++ y el enlace finalizaron con código 0.
+- DLL desplegada en `C:\Program Files\VxKex\Kex64\KxCom.dll`. Backup conservado en `C:\Program Files\VxKex\Kex64\KxCom.dll.before-roactivate-native-fix-20261021-2132.bak`.
+- La misma sesión de ChatGPT en Edge 133.0.3065.92 permaneció abierta durante 180 s, con 12 procesos Edge al final y sin nuevos Crashpad dumps.
+- **Límite de la prueba:** durante esta regresión no se volvió a registrar la activación exacta de `ConnectionProfileFilter`; se confirma estabilidad durante 180 s, pero queda pendiente repetir directamente ese camino. El diálogo `无法更新 Microsoft Edge` sigue apareciendo y no forma parte de esta corrección.
 
 ## Soporte Windows XP / Server 2003 (2026-08-25)
 
