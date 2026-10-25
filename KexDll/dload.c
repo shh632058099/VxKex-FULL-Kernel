@@ -409,7 +409,52 @@ Failure:
 	}
 
 	if (ProcedureAddress) {
+		PVOID ThunkPageBase;
+		SIZE_T ThunkPageSize;
+		ULONG PreviousProtection;
+		ULONG IgnoredProtection;
+		PVOID RestorePageBase;
+		SIZE_T RestorePageSize;
+
+		// Delay import thunks in Windows system DLLs (including webio.dll) can
+		// reside on read-only image pages. Chromium reaches this path when the
+		// signed-in Edge profile initializes. Updating the IAT without first
+		// changing protection causes STATUS_ACCESS_VIOLATION in this resolver.
+		ThunkPageBase = &ImportAddressTable[Index];
+		ThunkPageSize = sizeof(ImportAddressTable[Index].u1.Function);
+		Status = NtProtectVirtualMemory(
+			NtCurrentProcess(),
+			&ThunkPageBase,
+			&ThunkPageSize,
+			PAGE_READWRITE,
+			&PreviousProtection);
+		if (!NT_SUCCESS(Status)) {
+			KexLogErrorEvent(
+				L"Cannot make delay-import thunk writable for %hs in %hs: 0x%08lx",
+				NameOfDelayLoadedAPI ? NameOfDelayLoadedAPI : "<ordinal>",
+				NameOfDllToLoad,
+				Status);
+			return NULL;
+		}
+
 		ImportAddressTable[Index].u1.Function = (ULONG_PTR) ProcedureAddress;
+
+		RestorePageBase = ThunkPageBase;
+		RestorePageSize = ThunkPageSize;
+		Status = NtProtectVirtualMemory(
+			NtCurrentProcess(),
+			&RestorePageBase,
+			&RestorePageSize,
+			PreviousProtection,
+			&IgnoredProtection);
+		if (!NT_SUCCESS(Status)) {
+			KexLogErrorEvent(
+				L"Cannot restore delay-import thunk protection for %hs in %hs: 0x%08lx",
+				NameOfDelayLoadedAPI ? NameOfDelayLoadedAPI : "<ordinal>",
+				NameOfDllToLoad,
+				Status);
+		}
+
 
 		if (NameOfDelayLoadedAPI) {
 			KexLogDebugEvent(

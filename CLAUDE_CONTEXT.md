@@ -158,3 +158,13 @@ Después de completar una tarea significativa (nuevo módulo integrado, bug corr
 - Añadir nuevas decisiones técnicas con su justificación breve.
 - Actualizar la fecha en el encabezado.
 - Mantener "Próximos pasos" con máximo 5-7 ítems priorizados, no una lista acumulativa infinita.
+
+
+## 2026-10-25 Edge 133 已登录账户启动闪退修复
+
+- **根因（第二阶段进程）**：Edge 133 启动后第一阶段 msedge 进程（约 2 秒）退出并重启第二阶段真正的 browser 主进程。第一阶段退出码 1 并不是实际闪退。CDB 附加第二阶段时捕获 `0xC0000005`，位置 `KexDll!KexLdrResolveDelayLoadedAPI+0x56d`，对 `webio.dll` 只读页的延迟导入地址表（IAT）直接赋值。
+- **代码修复**：`KexDll/dload.c` 中写入 `ImportAddressTable[Index].u1.Function` 前使用 `NtProtectVirtualMemory(NtCurrentProcess(), ..., PAGE_READWRITE, ...)` 临时开放相应 IAT 页的写权限；完成写入后恢复旧保护；保护调整失败时记录错误并停止该次解析，避免再次访问冲突。
+- **原始用户配置保留**：无需修改 `account_info` / `edge_account_type`（原值 1）、丢弃微软账户、删除 Cookies、或添加 `--no-sandbox`。此前改类型 0 虽避免闪退却会清空 `account_info`，已确认为不接受的 workaround。
+- **构建产物**：VS2010/x64 Release `D:\workspace\vxkex-win81\x64\Release\KexDll.dll`，SHA-256 `AE50B50C8C91CFC7BD5E0813D0B13D0ADE7A544800B0E2CC1130BCFDD1DC3765`。实际加载在 `C:\Windows\System32\KexDll.dll`，不是 `C:\Program Files\VxKex\Kex64\KexDll.dll`。安装旧版备份 `C:\Windows\System32\KexDll.dll.before-delay-iat-protect-20261025.bak`。
+- **验证**：完整原始配置副本 8,913 文件（约 1.22 GB）启动保持原始账户类型 1、微软账户记录不丢，稳定 180 秒且无新的 Crashpad dump。通过桌面原始 Edge133 快捷方式启动真实 `User Data`，打开 `https://chatgpt.com/` 后稳定 120 秒，账户记录与类型 1 均保持，无新转储，Sandbox 未关闭。实际云端同步是否完成尚需从 Edge 的同步状态页面确认，不能仅凭 Preferences 中有账户记录断言同步成功。
+- **Portable**：`D:\workspace\Edge133-Win81-Portable-repack\VxKex\Payload\Windows\System32\KexDll.dll` 必须使用上述版本，安装后需验证实际 `System32` 文件哈希；如果已加载旧 DLL，退出使用 VxKex 的程序或重启后再部署。基础安装器内原始载荷可以保持不变，`Install-VxKex.ps1` 在基础安装后应用补丁载荷。
